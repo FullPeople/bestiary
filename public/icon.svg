@@ -1,7 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <path d="M12 52V16C12 12 16 8 20 8H44C48 8 52 12 52 16V52" stroke="#27ae60" stroke-width="3" stroke-linecap="round"/>
-  <path d="M12 52C12 48 16 46 20 46H44C48 46 52 48 52 52" stroke="#27ae60" stroke-width="3"/>
-  <path d="M20 46V8" stroke="#27ae60" stroke-width="2"/>
-  <circle cx="36" cy="27" r="8" stroke="#e74c3c" stroke-width="2.5" fill="none"/>
-  <path d="M36 22V27H40" stroke="#e74c3c" stroke-width="2" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="4" y="4" width="56" height="56" rx="8" fill="#1a1a2e" stroke="#27ae60" stroke-width="2"/>
+  <text x="32" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-weight="900" font-size="18" fill="#27ae60">怪物</text>
+  <text x="32" y="48" text-anchor="middle" font-family="Arial,sans-serif" font-weight="900" font-size="18" fill="#27ae60">图鉴</text>
 </svg>
