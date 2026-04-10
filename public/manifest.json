@@ -1,0 +1,16 @@
+{
+  "name": "怪物图鉴",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "author": "FullPeople",
+  "homepage_url": "https://github.com/FullPeople/bestiary",
+  "description": "D&D 5E 怪物图鉴，可检索怪物并一键添加到场景，自动设置HP/AC/先攻",
+  "icon": "/bestiary/icon.svg",
+  "action": {
+    "title": "怪物图鉴",
+    "icon": "/bestiary/icon.svg",
+    "popover": "/bestiary/index.html",
+    "height": 600,
+    "width": 350
+  }
+}
