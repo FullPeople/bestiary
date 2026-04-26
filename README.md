@@ -57,3 +57,13 @@ https://obr.dnd.center/bestiary/manifest.json
 - 5etools 与 kiwee.top 的内容许可请参考其各自网站说明
 
 如果你 fork 本项目自行部署，请确保你对所引用的数据拥有合法使用权。本作者不对使用者的数据行为承担责任。
+
+---
+
+## 💖 支持作者
+
+如果这些插件对你的跑团有帮助，欢迎来爱发电支持一下作者 —— 用于服务器续费和新插件开发 ♥
+
+[![前往爱发电](https://img.shields.io/badge/%E7%88%B1%E5%8F%91%E7%94%B5-FullPeople-FF6B9D?style=for-the-badge&logo=heart&logoColor=white)](https://ifdian.net/a/fullpeople)
+
+> 反馈或建议：[1763086701@qq.com](mailto:1763086701@qq.com)
