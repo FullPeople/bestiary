@@ -24,6 +24,11 @@ function App() {
   const [role, setRole] = useState<"GM" | "PLAYER">("PLAYER");
   const [show2014, setShow2014] = useState(() => readLS("show2014", "1") === "1");
   const [show2024, setShow2024] = useState(() => readLS("show2024", "1") === "1");
+  // 弹窗 toggle — uses a different prefix because it's read by background.ts
+  // too. Default ON.
+  const [autoPopup, setAutoPopup] = useState(() => {
+    try { return localStorage.getItem("com.bestiary/auto-popup") !== "0"; } catch { return true; }
+  });
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -131,6 +136,20 @@ function App() {
     });
   }, []);
 
+  const toggleAutoPopup = useCallback(() => {
+    const next = !autoPopup;
+    setAutoPopup(next);
+    try { localStorage.setItem("com.bestiary/auto-popup", next ? "1" : "0"); } catch {}
+    // Notify background.ts so it can re-evaluate the current selection.
+    try {
+      OBR.broadcast.sendMessage(
+        "com.bestiary/auto-popup-toggled",
+        {},
+        { destination: "LOCAL" }
+      );
+    } catch {}
+  }, [autoPopup]);
+
   return (
     <div class="app">
       <div class="header">
@@ -173,6 +192,15 @@ function App() {
           </button>
           <button class="sort-btn" onClick={toggleSort} title="按CR排序">
             CR {sortDesc ? "↓" : "↑"}
+          </button>
+          <button
+            class={`ed-btn${autoPopup ? " on" : ""}`}
+            onClick={toggleAutoPopup}
+            title={autoPopup
+              ? "已开启：选中怪物时自动弹出信息（点击关闭）"
+              : "已关闭：选中怪物不会弹出信息（点击开启）"}
+          >
+            弹窗
           </button>
           <button class="about-btn" onClick={handleAbout} title="关于">
             关于

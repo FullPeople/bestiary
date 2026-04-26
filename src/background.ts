@@ -10,6 +10,14 @@ const ICON_URL = "https://obr.dnd.center/bestiary/icon.svg";
 
 const BESTIARY_SLUG_KEY = "com.bestiary/slug";
 const INFO_SHOW_MSG = `${PLUGIN_ID}/info-show`;
+// Auto-popup toggle: when "0", selecting a spawned monster does NOT open the
+// info popover. Persisted per-browser. Broadcast (LOCAL) so the panel UI and
+// background.ts share the latest setting after toggling.
+const AUTO_POPUP_KEY = "com.bestiary/auto-popup";
+const AUTO_POPUP_TOGGLE_MSG = `${PLUGIN_ID}/auto-popup-toggled`;
+const isAutoPopupOn = (): boolean => {
+  try { return localStorage.getItem(AUTO_POPUP_KEY) !== "0"; } catch { return true; }
+};
 
 const POPOVER_WIDTH = 350;
 const POPOVER_HEIGHT = 600;
@@ -102,6 +110,11 @@ async function hideInfo() {
 }
 
 async function handleSelection(selection: string[] | undefined) {
+  // Auto-popup off: never open, and close any currently shown popover.
+  if (!isAutoPopupOn()) {
+    if (currentInfoSlug) await hideInfo();
+    return;
+  }
   if (!selection || selection.length !== 1) {
     if (currentInfoSlug) await hideInfo();
     return;
@@ -188,6 +201,16 @@ OBR.onReady(async () => {
     const sel = await OBR.player.getSelection();
     await handleSelection(sel);
   } catch {}
+
+  // Re-evaluate selection when the panel toggles the "弹窗" switch — turning
+  // it OFF should close any open popover; turning ON should open if a
+  // monster is currently selected.
+  OBR.broadcast.onMessage(AUTO_POPUP_TOGGLE_MSG, async () => {
+    try {
+      const sel = await OBR.player.getSelection();
+      await handleSelection(sel);
+    } catch {}
+  });
 
   // Hide if the bound monster item is deleted.
   OBR.scene.items.onChange(async () => {
