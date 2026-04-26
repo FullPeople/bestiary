@@ -38,7 +38,15 @@ https://obr.dnd.center/bestiary/manifest.json
 
 ## 许可证
 
-本仓库的**代码**采用 MIT 许可证，详见 [LICENSE](./LICENSE) 文件。
+本仓库的**代码**采用 [PolyForm Noncommercial License 1.0.0](./LICENSE) —— 详见 LICENSE 文件。
+
+**通俗说明**（仅供理解，以 LICENSE 全文为准）：
+
+- ✅ **可以**：自由查看、修改、二次创作、非商用分发
+- ✅ **必须**：保留 `Required Notice: Copyright (c) 2026 FullPeople` 这一行
+- ❌ **不允许**：任何商业用途（售卖、盈利产品、收费部署等）
+- ✅ 个人 / TRPG 团队 / 爱好者 / 学校 / 公益使用 **均允许**
+- ✅ 非商用衍生品可以闭源、可重新分发
 
 ### 数据来源声明
 
