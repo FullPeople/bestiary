@@ -1,18 +1,29 @@
 import { render } from "preact";
 import { useEffect, useState, useCallback, useRef } from "preact/compat";
 import OBR from "@owlbear-rodeo/sdk";
-import { ParsedMonster } from "./types";
+import { ParsedMonster, MonsterEdition } from "./types";
 import { loadAllMonsters, searchMonsters } from "./data";
 import { spawnMonster } from "./spawn";
 import "./styles.css";
 
+// Persisted UI state (keys are shared across panel opens / reloads).
+const LS_PREFIX = "bestiary/";
+const readLS = (k: string, d: string) => {
+  try { return localStorage.getItem(LS_PREFIX + k) ?? d; } catch { return d; }
+};
+const writeLS = (k: string, v: string) => {
+  try { localStorage.setItem(LS_PREFIX + k, v); } catch {}
+};
+
 function App() {
   const [monsters, setMonsters] = useState<ParsedMonster[]>([]);
   const [filtered, setFiltered] = useState<ParsedMonster[]>([]);
-  const [query, setQuery] = useState("");
-  const [sortDesc, setSortDesc] = useState(false);
+  const [query, setQuery] = useState(() => readLS("query", ""));
+  const [sortDesc, setSortDesc] = useState(() => readLS("sortDesc", "0") === "1");
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<"GM" | "PLAYER">("PLAYER");
+  const [show2014, setShow2014] = useState(() => readLS("show2014", "1") === "1");
+  const [show2024, setShow2024] = useState(() => readLS("show2024", "1") === "1");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -20,14 +31,24 @@ function App() {
 
     loadAllMonsters().then((all) => {
       setMonsters(all);
-      setFiltered(searchMonsters(all, "", false));
+      const initialEds = new Set<MonsterEdition>();
+      if (show2014) initialEds.add("2014");
+      if (show2024) initialEds.add("2024");
+      setFiltered(searchMonsters(all, query, sortDesc, initialEds));
       setLoading(false);
     });
   }, []);
 
+  const editions = (() => {
+    const s = new Set<MonsterEdition>();
+    if (show2014) s.add("2014");
+    if (show2024) s.add("2024");
+    return s;
+  })();
+
   const doSearch = useCallback(
-    (q: string, desc: boolean) => {
-      setFiltered(searchMonsters(monsters, q, desc));
+    (q: string, desc: boolean, eds: Set<MonsterEdition>) => {
+      setFiltered(searchMonsters(monsters, q, desc, eds));
     },
     [monsters]
   );
@@ -36,16 +57,38 @@ function App() {
     (e: Event) => {
       const val = (e.target as HTMLInputElement).value;
       setQuery(val);
-      doSearch(val, sortDesc);
+      writeLS("query", val);
+      doSearch(val, sortDesc, editions);
     },
-    [doSearch, sortDesc]
+    [doSearch, sortDesc, editions]
   );
 
   const toggleSort = useCallback(() => {
     const newDesc = !sortDesc;
     setSortDesc(newDesc);
-    doSearch(query, newDesc);
-  }, [sortDesc, query, doSearch]);
+    writeLS("sortDesc", newDesc ? "1" : "0");
+    doSearch(query, newDesc, editions);
+  }, [sortDesc, query, doSearch, editions]);
+
+  const toggle2014 = useCallback(() => {
+    const next = !show2014;
+    setShow2014(next);
+    writeLS("show2014", next ? "1" : "0");
+    const eds = new Set<MonsterEdition>();
+    if (next) eds.add("2014");
+    if (show2024) eds.add("2024");
+    doSearch(query, sortDesc, eds);
+  }, [show2014, show2024, query, sortDesc, doSearch]);
+
+  const toggle2024 = useCallback(() => {
+    const next = !show2024;
+    setShow2024(next);
+    writeLS("show2024", next ? "1" : "0");
+    const eds = new Set<MonsterEdition>();
+    if (show2014) eds.add("2014");
+    if (next) eds.add("2024");
+    doSearch(query, sortDesc, eds);
+  }, [show2014, show2024, query, sortDesc, doSearch]);
 
   const handleSpawn = useCallback(async (mon: ParsedMonster) => {
     await spawnMonster(mon);
@@ -72,23 +115,67 @@ function App() {
     );
   }
 
+  const handleClearSearch = useCallback(() => {
+    setQuery("");
+    writeLS("query", "");
+    doSearch("", sortDesc, editions);
+    inputRef.current?.focus();
+  }, [doSearch, sortDesc, editions]);
+
+  const handleAbout = useCallback(() => {
+    OBR.modal.open({
+      id: "com.bestiary/about",
+      url: "https://obr.dnd.center/bestiary/about.html",
+      width: 420,
+      height: 560,
+    });
+  }, []);
+
   return (
     <div class="app">
       <div class="header">
-        <input
-          ref={inputRef}
-          type="text"
-          class="search"
-          placeholder="搜索怪物名称/类型/CR..."
-          value={query}
-          onInput={handleSearch}
-        />
+        <div class="header-top">
+          <input
+            ref={inputRef}
+            type="text"
+            class="search"
+            placeholder="搜索怪物名称/类型/CR..."
+            value={query}
+            onInput={handleSearch}
+          />
+          <button
+            class="close-btn"
+            onClick={handleClearSearch}
+            title="清空搜索"
+            disabled={!query}
+            aria-label="清空搜索"
+          >
+            ✕
+          </button>
+        </div>
         <div class="header-row">
           <span class="count">
-            {loading ? "加载中..." : `${monsters.length} 个怪物`}
+            {loading ? "加载中..." : `${filtered.length} / ${monsters.length}`}
           </span>
+          <button
+            class={`ed-btn${show2014 ? " on" : ""}`}
+            onClick={toggle2014}
+            title="2014 版怪物"
+          >
+            2014
+          </button>
+          <button
+            class={`ed-btn${show2024 ? " on" : ""}`}
+            onClick={toggle2024}
+            title="2024 版怪物"
+          >
+            2024
+          </button>
           <button class="sort-btn" onClick={toggleSort} title="按CR排序">
             CR {sortDesc ? "↓" : "↑"}
+          </button>
+          <button class="about-btn" onClick={handleAbout} title="关于">
+            关于
           </button>
         </div>
       </div>

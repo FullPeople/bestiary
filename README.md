@@ -38,4 +38,14 @@ https://obr.dnd.center/bestiary/manifest.json
 
 ## 许可证
 
-MIT
+本仓库的**代码**采用 MIT 许可证，详见 [LICENSE](./LICENSE) 文件。
+
+### 数据来源声明
+
+- 怪物 JSON 数据从 `5e.kiwee.top`（5etools 的中文翻译镜像）运行时拉取
+- 怪物 token 图片从 `5e.tools` 经服务端反代缓存
+- 上述数据**不在本仓库分发**，也**不属于本许可证范围**
+- D&D 5E 的怪物名称、属性、描述等内容版权归 Wizards of the Coast 所有；其中 SRD 5.1 / 5.2 部分采用 Creative Commons 授权
+- 5etools 与 kiwee.top 的内容许可请参考其各自网站说明
+
+如果你 fork 本项目自行部署，请确保你对所引用的数据拥有合法使用权。本作者不对使用者的数据行为承担责任。

@@ -1,6 +1,18 @@
-import { Monster, ParsedMonster } from "./types";
+import { Monster, ParsedMonster, MonsterEdition } from "./types";
 
-const BASE = "https://5e.kiwee.top";
+// 2024 edition sources (new Monster Manual / PHB / DMG reprint). Everything
+// else — MM, MPMM, module books, etc. — is 2014 edition.
+const EDITION_2024_SOURCES = new Set(["XMM", "XPHB", "XDMG"]);
+
+function detectEdition(source: string): MonsterEdition {
+  return EDITION_2024_SOURCES.has(source) ? "2024" : "2014";
+}
+
+// Data source (JSON) — kiwee.top Chinese mirror
+const DATA_BASE = "https://5e.kiwee.top";
+// Images: proxied through our own server so OBR can load them as WebGL textures
+// (5e.tools doesn't send CORS headers, so direct loading fails in scene rendering).
+const IMG_BASE = "https://obr.dnd.center/5etools-img";
 
 const SIZE_MAP: Record<string, string> = {
   T: "超小型", S: "小型", M: "中型", L: "大型", H: "巨型", G: "超巨型",
@@ -24,22 +36,42 @@ function parseType(type: any): string {
   return String(type);
 }
 
+// Replicates 5etools Parser.nameToTokenName: toAscii + strip quotes
+// We can't call toAscii (it's a String prototype extension), so we approximate
+// with just removing quotes — most English monster names are already ASCII.
+function nameToTokenName(name: string): string {
+  return (name || "").replace(/"/g, "");
+}
+
+function buildTokenUrl(m: any): string {
+  // Matches 5etools Renderer.monster.getTokenUrl logic
+  if (m.tokenUrl) return m.tokenUrl; // legacy
+  if (m.token?.source && m.token?.name) {
+    return `${IMG_BASE}/bestiary/tokens/${m.token.source}/${encodeURIComponent(nameToTokenName(m.token.name))}.webp`;
+  }
+  if (m.hasToken === false) return "";
+  const src = m.source;
+  const nm = m.ENG_name || m.name;
+  if (!src || !nm) return "";
+  return `${IMG_BASE}/bestiary/tokens/${src}/${encodeURIComponent(nameToTokenName(nm))}.webp`;
+}
+
 function parseMon(m: any): ParsedMonster | null {
   try {
     if (!m || !m.name) return null;
+    const source = m.source || "?";
     return {
       name: m.name || "???",
       engName: m.ENG_name || m.name || "???",
-      source: m.source || "?",
+      source,
       ac: parseAC(m.ac),
       hp: m.hp?.average ?? 0,
       dexMod: Math.floor(((m.dex || 10) - 10) / 2),
       cr: m.cr ?? "?",
       size: SIZE_MAP[m.size?.[0]] || m.size?.[0] || "?",
       type: parseType(m.type),
-      tokenUrl: m.hasToken !== false && m.source && (m.ENG_name || m.name)
-        ? `${BASE}/img/bestiary/tokens/${m.source}/${encodeURIComponent(m.ENG_name || m.name)}.webp`
-        : "",
+      tokenUrl: buildTokenUrl(m),
+      edition: detectEdition(source),
     };
   } catch {
     return null;
@@ -48,6 +80,92 @@ function parseMon(m: any): ParsedMonster | null {
 
 let cachedMonsters: ParsedMonster[] | null = null;
 let loadingPromise: Promise<ParsedMonster[]> | null = null;
+const rawBySlug = new Map<string, any>();
+
+// slug uniquely identifies a monster across sources: "MM::Goblin"
+export function makeSlug(source: string, engName: string): string {
+  return `${source || "?"}::${engName || "?"}`;
+}
+
+export function getRawMonster(slug: string): any | null {
+  return rawBySlug.get(slug) ?? null;
+}
+
+// 5etools `_copy` support. A monster can be defined as a diff on top of another
+// monster (same or different source), with `_mod` describing per-field edits.
+// We implement the most common mod modes: replaceArr / insertArr / appendArr /
+// prependArr / removeArr. This is enough for stats + action sections to render.
+function applyMod(target: any, field: string, spec: any) {
+  if (!spec || typeof spec !== "object") return;
+  const mode = spec.mode;
+  const items = spec.items === undefined ? [] : (Array.isArray(spec.items) ? spec.items : [spec.items]);
+  if (mode === "replaceArr") {
+    if (!Array.isArray(target[field])) return;
+    const needle = spec.replace;
+    const idx = target[field].findIndex((x: any) => {
+      if (typeof needle === "string") {
+        return x && (x.name === needle || x.ENG_name === needle);
+      }
+      if (needle && typeof needle === "object") {
+        return x && (x.name === needle.name || x.ENG_name === needle.ENG_name);
+      }
+      return false;
+    });
+    if (idx !== -1) target[field].splice(idx, 1, ...items);
+  } else if (mode === "insertArr") {
+    if (!Array.isArray(target[field])) target[field] = [];
+    const at = typeof spec.index === "number" ? spec.index : target[field].length;
+    target[field].splice(at, 0, ...items);
+  } else if (mode === "appendArr") {
+    if (!Array.isArray(target[field])) target[field] = [];
+    target[field].push(...items);
+  } else if (mode === "prependArr") {
+    if (!Array.isArray(target[field])) target[field] = [];
+    target[field].unshift(...items);
+  } else if (mode === "removeArr") {
+    if (!Array.isArray(target[field])) return;
+    const names = Array.isArray(spec.names) ? spec.names : (spec.names ? [spec.names] : []);
+    target[field] = target[field].filter(
+      (x: any) => !names.some((n: any) => x && (x.name === n || x.ENG_name === n))
+    );
+  }
+  // Other modes (addSpells, scalarMultProp, etc.) intentionally not handled —
+  // falls through to parent data, which is still better than zeros.
+}
+
+function resolveCopy(m: any, bySlug: Map<string, any>, stack: Set<string>): any {
+  if (!m || !m._copy) return m;
+  const parentSource = m._copy.source;
+  const parentName = m._copy.ENG_name || m._copy.name;
+  const parentSlug = makeSlug(parentSource, parentName);
+  if (stack.has(parentSlug)) return m; // cycle guard
+  const parent = bySlug.get(parentSlug);
+  if (!parent) return m;
+  stack.add(parentSlug);
+  const resolvedParent = parent._copy ? resolveCopy(parent, bySlug, stack) : parent;
+  stack.delete(parentSlug);
+
+  // Deep-clone parent so _mod edits don't leak into siblings that share it.
+  const merged: any = JSON.parse(JSON.stringify(resolvedParent));
+  // Child's own fields override parent. Keep parent's name/source though —
+  // use child's for identity.
+  for (const [k, v] of Object.entries(m)) {
+    if (k === "_copy" || k === "_mod") continue;
+    if (v !== undefined && v !== null) merged[k] = v;
+  }
+
+  if (m._copy._mod) {
+    const mods = m._copy._mod;
+    for (const [field, modSpec] of Object.entries(mods)) {
+      if (Array.isArray(modSpec)) {
+        for (const s of modSpec) applyMod(merged, field, s);
+      } else {
+        applyMod(merged, field, modSpec);
+      }
+    }
+  }
+  return merged;
+}
 
 export async function loadAllMonsters(): Promise<ParsedMonster[]> {
   if (cachedMonsters) return cachedMonsters;
@@ -55,7 +173,7 @@ export async function loadAllMonsters(): Promise<ParsedMonster[]> {
 
   loadingPromise = (async () => {
     // Load index to get all source files
-    const indexRes = await fetch(`${BASE}/data/bestiary/index.json`);
+    const indexRes = await fetch(`${DATA_BASE}/data/bestiary/index.json`);
     const index = await indexRes.json() as Record<string, string>;
 
     // Load all source files in parallel
@@ -63,7 +181,7 @@ export async function loadAllMonsters(): Promise<ParsedMonster[]> {
     const results = await Promise.all(
       entries.map(async ([, filename]) => {
         try {
-          const res = await fetch(`${BASE}/data/bestiary/${filename}`);
+          const res = await fetch(`${DATA_BASE}/data/bestiary/${filename}`);
           const data = await res.json();
           return (data.monster || []) as Monster[];
         } catch {
@@ -72,7 +190,24 @@ export async function loadAllMonsters(): Promise<ParsedMonster[]> {
       })
     );
 
-    const all = results.flat().map(parseMon).filter((x): x is ParsedMonster => x !== null);
+    const rawAll = results.flat();
+    // Build slug → raw lookup so spawn/info can read full monster data
+    // (abilities, actions, etc.) without re-fetching.
+    for (const m of rawAll) {
+      if (m && m.name) {
+        rawBySlug.set(makeSlug(m.source, m.ENG_name || m.name), m);
+      }
+    }
+    // Resolve 5etools _copy inheritance so entries like BGDIA::Zariel
+    // (which only have diffs vs. MTF::Zariel) get full stats / actions.
+    for (const [slug, m] of rawBySlug) {
+      if (m && m._copy) {
+        rawBySlug.set(slug, resolveCopy(m, rawBySlug, new Set()));
+      }
+    }
+    const all = Array.from(rawBySlug.values())
+      .map(parseMon)
+      .filter((x): x is ParsedMonster => x !== null);
     // Sort by CR numerically, then by name
     all.sort((a, b) => {
       const crA = parseCR(a.cr);
@@ -98,13 +233,14 @@ function parseCR(cr: string): number {
 export function searchMonsters(
   monsters: ParsedMonster[],
   query: string,
-  sortDesc: boolean = false
+  sortDesc: boolean = false,
+  enabledEditions: Set<MonsterEdition> = new Set(["2014", "2024"])
 ): ParsedMonster[] {
-  let result = monsters;
+  let result = monsters.filter((m) => enabledEditions.has(m.edition));
 
   if (query.trim()) {
     const q = query.toLowerCase().trim();
-    result = monsters.filter((m) => {
+    result = result.filter((m) => {
       const t = String(m.type || "");
       return (
         (m.name || "").toLowerCase().includes(q) ||

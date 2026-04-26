@@ -1,10 +1,38 @@
 import OBR, { buildImage } from "@owlbear-rodeo/sdk";
 import { ParsedMonster } from "./types";
+import { getRawMonster, makeSlug } from "./data";
 
 const BUBBLES_META = "com.owlbear-rodeo-bubbles-extension/metadata";
 const BUBBLES_NAME = "com.owlbear-rodeo-bubbles-extension/name";
 const INITIATIVE_META = "com.initiative-tracker/data";
 const INITIATIVE_MODKEY = "com.initiative-tracker/dexMod";
+
+// Each spawned item stores a slug reference to a shared monster-data table
+// on the scene metadata. Same-kind monsters share one entry → scene stays
+// small even with many tokens.
+const BESTIARY_SLUG_KEY = "com.bestiary/slug";
+const BESTIARY_DATA_KEY = "com.bestiary/monsters";
+
+// Scene metadata read-modify-write is not atomic: parallel spawns can clobber
+// each other's additions. We serialize writes through a promise chain so each
+// update sees the result of the previous one.
+let writeChain: Promise<void> = Promise.resolve();
+
+async function ensureSharedMonsterData(slug: string, raw: any) {
+  if (!raw) return;
+  writeChain = writeChain.then(async () => {
+    try {
+      const meta = await OBR.scene.getMetadata();
+      const table = (meta[BESTIARY_DATA_KEY] as Record<string, any>) || {};
+      if (table[slug]) return;
+      table[slug] = raw;
+      await OBR.scene.setMetadata({ [BESTIARY_DATA_KEY]: table });
+    } catch (e) {
+      console.error("[bestiary] ensureSharedMonsterData failed", e);
+    }
+  });
+  await writeChain;
+}
 
 function roll1d20(): number {
   return Math.floor(Math.random() * 20) + 1;
@@ -21,7 +49,13 @@ function getImageSize(url: string): Promise<{ w: number; h: number }> {
 }
 
 export async function spawnMonster(monster: ParsedMonster) {
-  const tokenUrl = monster.tokenUrl || `https://5e.kiwee.top/img/bestiary/tokens/MM/Commoner.webp`;
+  const tokenUrl = monster.tokenUrl || `https://obr.dnd.center/5etools-img/bestiary/tokens/MM/Commoner.webp`;
+
+  const slug = makeSlug(monster.source, monster.engName);
+  await ensureSharedMonsterData(slug, getRawMonster(slug));
+
+  let ownerId = "";
+  try { ownerId = await OBR.player.getId(); } catch {}
 
   const [vpWidth, vpHeight, vpPos, vpScale, imgSize] = await Promise.all([
     OBR.viewport.getWidth(),
@@ -66,8 +100,12 @@ export async function spawnMonster(monster: ParsedMonster) {
       [INITIATIVE_META]: {
         count: initiativeRoll,
         active: false,
+        rolled: false,
+        tiebreak: Math.random(),
+        ownerId,
       },
       [INITIATIVE_MODKEY]: monster.dexMod,
+      [BESTIARY_SLUG_KEY]: slug,
     })
     .build();
 

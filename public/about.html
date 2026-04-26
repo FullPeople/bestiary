@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>关于</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#1a1a2e;color:#eee}
+.wrap{height:100%;overflow-y:auto;padding:18px 20px;line-height:1.6}
+.wrap::-webkit-scrollbar{width:4px}
+.wrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:2px}
+h1{font-size:17px;font-weight:700;color:#e94560;margin-bottom:4px}
+.sub{font-size:11px;color:#888;margin-bottom:14px}
+h2{font-size:13px;font-weight:700;color:#f5a623;margin-top:16px;margin-bottom:8px;letter-spacing:.5px}
+p{font-size:12px;color:#ccc;margin-bottom:6px}
+ul{list-style:none;padding:0}
+li{font-size:12px;color:#ccc;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;gap:8px;align-items:flex-start}
+li:last-child{border-bottom:none}
+.tag{flex-shrink:0;font-size:10px;background:rgba(52,152,219,0.15);color:#5dade2;padding:2px 6px;border-radius:4px;white-space:nowrap;margin-top:1px}
+.li-body{flex:1;min-width:0}
+.url{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:#5dade2;background:rgba(52,152,219,0.08);padding:2px 6px;border-radius:3px;margin-top:3px;display:inline-block;word-break:break-all}
+a{color:#3498db;text-decoration:none}
+a:hover{color:#5dade2;text-decoration:underline}
+.btn{display:inline-block;margin-top:14px;padding:8px 16px;background:linear-gradient(135deg,#ff6b9d,#e94560);color:#fff;border-radius:6px;font-weight:600;font-size:13px;text-decoration:none}
+.btn:hover{text-decoration:none;box-shadow:0 2px 8px rgba(233,69,96,0.4)}
+hr{border:none;border-top:1px solid rgba(255,255,255,0.08);margin:14px 0}
+.foot{text-align:center;font-size:10px;color:#555;margin-top:18px;padding-bottom:8px}
+.note{font-size:11px;color:#999;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.1);padding:10px 12px;border-radius:6px;margin-top:10px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📖 怪物图鉴</h1>
+  <div class="sub">by FullPeople</div>
+
+  <h2>📖 使用提示</h2>
+  <ul>
+    <li><span class="tag">激活</span><div class="li-body">点击工具栏的怪物图鉴图标进入激活状态，面板自动展开；切到任意其他工具自动收起</div></li>
+    <li><span class="tag">搜索</span><div class="li-body">支持名称（中/英）、类型（aberration / dragon ...）、CR（如 1/4、5）匹配</div></li>
+    <li><span class="tag">版本筛选</span><div class="li-body"><span class="tag">2014</span> <span class="tag">2024</span> 切换显示对应版本的怪物，状态会持久化</div></li>
+    <li><span class="tag">排序</span><div class="li-body">按 CR 升降序，状态持久化</div></li>
+    <li><span class="tag">召唤</span><div class="li-body">点击怪物卡片即可一键拖入场景中心，自动设置 HP/AC/先攻/DEX 修正</div></li>
+    <li><span class="tag">信息面板</span><div class="li-body">DM 端选中已召唤的怪物，顶部居中弹出 320×440 信息面板：六维、特性、动作、附赠动作、反应、传奇动作、施法都列出来</div></li>
+    <li><span class="tag">数据来源</span><div class="li-body">5e.kiwee.top 中文镜像，支持 5etools 全部数据。包含 _copy 继承解析（如 BGDIA 大公扎瑞尔会从 MTF 巫妖继承全部数据）</div></li>
+  </ul>
+
+  <h2>🔌 同作者其他插件</h2>
+  <ul>
+    <li>
+      <span class="tag">先攻追踪</span>
+      <div class="li-body">
+        顶部居中横向卡槽，支持准备阶段、战斗开始/结束、单回合切换、玩家结束自己回合
+        <div class="url">https://obr.dnd.center/initiative/manifest.json</div>
+      </div>
+    </li>
+    <li>
+      <span class="tag">角色卡</span>
+      <div class="li-body">
+        导入 xlsx 角色卡；DM 端内置职业/法术/物品/种族/帷幕/图鉴等资料速查
+        <div class="url">https://obr.dnd.center/character-cards/manifest.json</div>
+      </div>
+    </li>
+  </ul>
+
+  <hr>
+
+  <h2>💖 支持作者</h2>
+  <p>如果这些插件对你的跑团有帮助，可以来我的爱发电支持一下，用于服务器续费和新插件开发 ♥</p>
+  <a class="btn" href="https://ifdian.net/a/fullpeople" target="_blank">前往爱发电</a>
+
+  <div class="foot">obr.dnd.center · GitHub @FullPeople</div>
+</div>
+</body>
+</html>

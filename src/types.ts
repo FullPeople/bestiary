@@ -18,6 +18,8 @@ export interface Monster {
   hasFluffImages?: boolean;
 }
 
+export type MonsterEdition = "2014" | "2024";
+
 export interface ParsedMonster {
   name: string;
   engName: string;
@@ -29,4 +31,5 @@ export interface ParsedMonster {
   size: string;
   type: string;
   tokenUrl: string;
+  edition: MonsterEdition;
 }
