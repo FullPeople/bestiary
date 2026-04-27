@@ -15,6 +15,33 @@ const writeLS = (k: string, v: string) => {
   try { localStorage.setItem(LS_PREFIX + k, v); } catch {}
 };
 
+// Suite state lives in scene metadata under "com.obr-suite/state". When the
+// suite is installed, its Settings panel writes dataVersion ("2014" / "2024"
+// / "all"), and we mirror that into the bestiary's edition filter. If the
+// suite isn't installed, this scene metadata never appears and we fall back
+// to "all" so the bestiary stays useful standalone.
+const SUITE_STATE_KEY = "com.obr-suite/state";
+type SuiteDataVersion = "2014" | "2024" | "all";
+
+async function readSuiteDataVersion(): Promise<SuiteDataVersion> {
+  try {
+    const meta = await OBR.scene.getMetadata();
+    const s = meta[SUITE_STATE_KEY] as any;
+    const dv = s?.dataVersion;
+    if (dv === "2014" || dv === "2024" || dv === "all") return dv;
+  } catch {}
+  return "all";
+}
+
+function dvToEditionSet(dv: SuiteDataVersion): Set<MonsterEdition> {
+  // "all" includes every source (2014 cores, 2024 cores, and all extensions
+  // like TCE/XGE/MTF/MPMM/BGG which are tagged "other").
+  if (dv === "all") return new Set<MonsterEdition>(["2014", "2024", "other"]);
+  if (dv === "2014") return new Set<MonsterEdition>(["2014"]);
+  if (dv === "2024") return new Set<MonsterEdition>(["2024"]);
+  return new Set<MonsterEdition>(["2014", "2024", "other"]);
+}
+
 function App() {
   const [monsters, setMonsters] = useState<ParsedMonster[]>([]);
   const [filtered, setFiltered] = useState<ParsedMonster[]>([]);
@@ -22,32 +49,31 @@ function App() {
   const [sortDesc, setSortDesc] = useState(() => readLS("sortDesc", "0") === "1");
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<"GM" | "PLAYER">("PLAYER");
-  const [show2014, setShow2014] = useState(() => readLS("show2014", "1") === "1");
-  const [show2024, setShow2024] = useState(() => readLS("show2024", "1") === "1");
-  // 弹窗 toggle now lives in the floating controls popover next to the
-  // 角色卡 button (owned by the character-cards plugin). The persisted
-  // localStorage key + broadcast id are unchanged, only the UI moved.
+  // Edition gate now flows from suite scene metadata (via dataVersion).
+  const [dataVersion, setDataVersion] = useState<SuiteDataVersion>("all");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     OBR.player.getRole().then(setRole);
+    readSuiteDataVersion().then(setDataVersion);
+    const unsub = OBR.scene.onMetadataChange(() => {
+      readSuiteDataVersion().then(setDataVersion);
+    });
 
     loadAllMonsters().then((all) => {
       setMonsters(all);
-      const initialEds = new Set<MonsterEdition>();
-      if (show2014) initialEds.add("2014");
-      if (show2024) initialEds.add("2024");
-      setFiltered(searchMonsters(all, query, sortDesc, initialEds));
       setLoading(false);
     });
+    return unsub;
   }, []);
 
-  const editions = (() => {
-    const s = new Set<MonsterEdition>();
-    if (show2014) s.add("2014");
-    if (show2024) s.add("2024");
-    return s;
-  })();
+  const editions = dvToEditionSet(dataVersion);
+
+  // Re-filter when the data version changes (suite settings flipped).
+  useEffect(() => {
+    if (monsters.length === 0) return;
+    setFiltered(searchMonsters(monsters, query, sortDesc, dvToEditionSet(dataVersion)));
+  }, [dataVersion, monsters]);
 
   const doSearch = useCallback(
     (q: string, desc: boolean, eds: Set<MonsterEdition>) => {
@@ -73,25 +99,8 @@ function App() {
     doSearch(query, newDesc, editions);
   }, [sortDesc, query, doSearch, editions]);
 
-  const toggle2014 = useCallback(() => {
-    const next = !show2014;
-    setShow2014(next);
-    writeLS("show2014", next ? "1" : "0");
-    const eds = new Set<MonsterEdition>();
-    if (next) eds.add("2014");
-    if (show2024) eds.add("2024");
-    doSearch(query, sortDesc, eds);
-  }, [show2014, show2024, query, sortDesc, doSearch]);
-
-  const toggle2024 = useCallback(() => {
-    const next = !show2024;
-    setShow2024(next);
-    writeLS("show2024", next ? "1" : "0");
-    const eds = new Set<MonsterEdition>();
-    if (show2014) eds.add("2014");
-    if (next) eds.add("2024");
-    doSearch(query, sortDesc, eds);
-  }, [show2014, show2024, query, sortDesc, doSearch]);
+  // 2014/2024 toggle buttons removed — versioning is centrally controlled
+  // from the suite Settings panel (dataVersion in scene metadata).
 
   const handleSpawn = useCallback(async (mon: ParsedMonster) => {
     await spawnMonster(mon);
@@ -125,14 +134,7 @@ function App() {
     inputRef.current?.focus();
   }, [doSearch, sortDesc, editions]);
 
-  const handleAbout = useCallback(() => {
-    OBR.modal.open({
-      id: "com.bestiary/about",
-      url: "https://obr.dnd.center/bestiary/about.html",
-      width: 420,
-      height: 560,
-    });
-  }, []);
+  // "About" button removed — the suite About panel covers all modules.
 
   return (
     <div class="app">
@@ -160,25 +162,8 @@ function App() {
           <span class="count">
             {loading ? "加载中..." : `${filtered.length} / ${monsters.length}`}
           </span>
-          <button
-            class={`ed-btn${show2014 ? " on" : ""}`}
-            onClick={toggle2014}
-            title="2014 版怪物"
-          >
-            2014
-          </button>
-          <button
-            class={`ed-btn${show2024 ? " on" : ""}`}
-            onClick={toggle2024}
-            title="2024 版怪物"
-          >
-            2024
-          </button>
           <button class="sort-btn" onClick={toggleSort} title="按CR排序">
             CR {sortDesc ? "↓" : "↑"}
-          </button>
-          <button class="about-btn" onClick={handleAbout} title="关于">
-            关于
           </button>
         </div>
       </div>
