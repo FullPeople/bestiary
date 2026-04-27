@@ -18,7 +18,10 @@ export interface Monster {
   hasFluffImages?: boolean;
 }
 
-export type MonsterEdition = "2014" | "2024";
+// "2014" = strictly PHB+MM, "2024" = strictly XPHB+XMM, "other" = every
+// other source (TCE/XGE/MTF/MPMM/BGG/FTD/etc.) — `other` is ALWAYS shown
+// regardless of the 2014/2024 toggle state.
+export type MonsterEdition = "2014" | "2024" | "other";
 
 export interface ParsedMonster {
   name: string;

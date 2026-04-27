@@ -1,11 +1,16 @@
 import { Monster, ParsedMonster, MonsterEdition } from "./types";
 
-// 2024 edition sources (new Monster Manual / PHB / DMG reprint). Everything
-// else — MM, MPMM, module books, etc. — is 2014 edition.
-const EDITION_2024_SOURCES = new Set(["XMM", "XPHB", "XDMG"]);
+// "2014" = strictly PHB + MM (the original core books). "2024" = strictly
+// XPHB + XMM (the 2024 reprint). Every other source — DMG/XDMG, TCE, XGE,
+// MTF, MPMM, BGG, FTD, etc. — counts as `other` and is ALWAYS visible
+// regardless of the user's 2014/2024 toggle. Per user feedback 2026-04-27.
+const EDITION_2014_CORE = new Set(["PHB", "MM"]);
+const EDITION_2024_CORE = new Set(["XPHB", "XMM"]);
 
 function detectEdition(source: string): MonsterEdition {
-  return EDITION_2024_SOURCES.has(source) ? "2024" : "2014";
+  if (EDITION_2014_CORE.has(source)) return "2014";
+  if (EDITION_2024_CORE.has(source)) return "2024";
+  return "other";
 }
 
 // Data source (JSON) — kiwee.top Chinese mirror
@@ -234,9 +239,13 @@ export function searchMonsters(
   monsters: ParsedMonster[],
   query: string,
   sortDesc: boolean = false,
-  enabledEditions: Set<MonsterEdition> = new Set(["2014", "2024"])
+  enabledEditions: Set<MonsterEdition> = new Set(["2014", "2024", "other"])
 ): ParsedMonster[] {
-  let result = monsters.filter((m) => enabledEditions.has(m.edition));
+  // `other` is always implicitly enabled — the 2014/2024 toggles only
+  // gate PHB/MM and XPHB/XMM respectively. Anything else passes through.
+  let result = monsters.filter(
+    (m) => m.edition === "other" || enabledEditions.has(m.edition)
+  );
 
   if (query.trim()) {
     const q = query.toLowerCase().trim();
